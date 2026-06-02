@@ -177,6 +177,33 @@
   }
   .fmt-wrap:hover .tooltip { display: block; }
 
+  /* Trim section */
+  .trim-box {
+    margin-bottom: 16px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  }
+  .trim-toggle {
+    width: 100%; padding: 10px 14px; background: var(--surface); border: none;
+    color: var(--muted); font-size: 13px; font-family: var(--sans); font-weight: 500;
+    cursor: pointer; text-align: left; display: flex; align-items: center; justify-content: space-between;
+    transition: color 0.15s;
+  }
+  .trim-toggle:hover { color: var(--text); }
+  .trim-toggle.active { color: var(--accent); }
+  .trim-toggle-arrow { font-size: 10px; transition: transform 0.2s; }
+  .trim-toggle.active .trim-toggle-arrow { transform: rotate(180deg); }
+  .trim-body { display: none; padding: 14px; border-top: 1px solid var(--border); background: var(--surface2); }
+  .trim-body.show { display: block; }
+  .trim-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+  .trim-field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 6px; font-weight: 500; letter-spacing: 0.4px; text-transform: uppercase; }
+  .trim-field input {
+    width: 100%; padding: 9px 12px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 14px; font-family: var(--mono);
+    outline: none; transition: border-color 0.2s; letter-spacing: 1px;
+  }
+  .trim-field input:focus { border-color: var(--border2); }
+  .trim-field input::placeholder { color: var(--hint); letter-spacing: 0; font-family: var(--sans); font-size: 12px; }
+  .trim-hint { font-size: 12px; color: var(--hint); }
+
   .footer { text-align: center; padding: 18px; border-top: 1px solid var(--border); font-size: 12px; color: var(--hint); }
 
   @media (max-width: 480px) {
@@ -293,6 +320,27 @@
           <div class="tooltip"><strong>OPUS</strong>Formato moderno com melhor qualidade por tamanho. Usado no YouTube e WhatsApp, mas suporte limitado em players.</div>
         </span>
       </div>
+    </div>
+  </div>
+
+  <!-- Trim section -->
+  <div class="trim-box">
+    <button class="trim-toggle" id="trim-toggle" onclick="toggleTrim()">
+      <span>✂️ &nbsp;Baixar trecho específico <span style="font-size:11px;color:var(--hint);font-weight:400;">(opcional)</span></span>
+      <span class="trim-toggle-arrow">▼</span>
+    </button>
+    <div class="trim-body" id="trim-body">
+      <div class="trim-row">
+        <div class="trim-field">
+          <label>Início</label>
+          <input type="text" id="trim-start" placeholder="ex: 00:01:30" oninput="generate()" maxlength="8" />
+        </div>
+        <div class="trim-field">
+          <label>Fim</label>
+          <input type="text" id="trim-end" placeholder="ex: 00:03:45" oninput="generate()" maxlength="8" />
+        </div>
+      </div>
+      <p class="trim-hint">⏱ Formato: hh:mm:ss — ex: <strong style="color:var(--muted);">00:01:30</strong> até <strong style="color:var(--muted);">00:03:45</strong> baixa do 1min30 ao 3min45</p>
     </div>
   </div>
 
@@ -491,17 +539,37 @@
     const out = '%USERPROFILE%\\Downloads\\%(title)s.%(ext)s';
     let cmd = '';
 
+    const trimStart = document.getElementById('trim-start') ? document.getElementById('trim-start').value.trim() : '';
+    const trimEnd = document.getElementById('trim-end') ? document.getElementById('trim-end').value.trim() : '';
+    let trimFlag = '';
+    if (trimStart && trimEnd) {
+      trimFlag = ' --download-sections "*' + trimStart + '-' + trimEnd + '" --force-keyframes-at-cuts';
+    } else if (trimStart) {
+      trimFlag = ' --download-sections "*' + trimStart + '-inf" --force-keyframes-at-cuts';
+    } else if (trimEnd) {
+      trimFlag = ' --download-sections "*0-' + trimEnd + '" --force-keyframes-at-cuts';
+    }
+
     if (currentType === 'video') {
       const q = document.getElementById('quality-select').value;
-      cmd = 'yt-dlp -f "' + q + '" --merge-output-format ' + currentFormat + ' -o "' + out + '" ' + safeUrl;
+      cmd = 'yt-dlp -f "' + q + '" --merge-output-format ' + currentFormat + trimFlag + ' -o "' + out + '" ' + safeUrl;
     } else {
       const aq = document.getElementById('audio-quality-select').value;
-      cmd = 'yt-dlp -x --audio-format ' + currentAudioFormat + ' --audio-quality ' + aq + 'K -o "' + out + '" ' + safeUrl;
+      cmd = 'yt-dlp -x --audio-format ' + currentAudioFormat + ' --audio-quality ' + aq + 'K' + trimFlag + ' -o "' + out + '" ' + safeUrl;
     }
 
     document.getElementById('cmd-output').textContent = cmd;
     document.getElementById('copy-btn').textContent = 'Copiar comando';
     document.getElementById('copy-btn').style.background = '';
+  }
+
+  function toggleTrim() {
+    const body = document.getElementById('trim-body');
+    const toggle = document.getElementById('trim-toggle');
+    const isOpen = body.classList.contains('show');
+    body.classList.toggle('show', !isOpen);
+    toggle.classList.toggle('active', !isOpen);
+    generate();
   }
 
   function removePlaylist() {
