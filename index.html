@@ -178,6 +178,45 @@
   }
   .fmt-wrap:hover .tooltip { display: block; }
 
+  /* User setup */
+  .setup-overlay {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); z-index: 999;
+    align-items: center; justify-content: center;
+  }
+  .setup-overlay.show { display: flex; }
+  .setup-card {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 14px; padding: 28px 24px; width: 90%; max-width: 360px;
+  }
+  .setup-icon { font-size: 32px; margin-bottom: 12px; }
+  .setup-card h2 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .setup-card p { font-size: 13px; color: var(--muted); margin-bottom: 18px; line-height: 1.6; }
+  .setup-card code { font-family: var(--mono); background: var(--surface2); padding: 1px 6px; border-radius: 4px; font-size: 12px; color: #b0d0ff; }
+  .setup-input {
+    width: 100%; padding: 10px 14px; background: var(--bg);
+    border: 1px solid var(--border2); border-radius: 8px;
+    color: var(--text); font-size: 14px; font-family: var(--mono);
+    outline: none; margin-bottom: 14px; letter-spacing: 0.5px;
+  }
+  .setup-input:focus { border-color: var(--accent); }
+  .setup-btn {
+    width: 100%; padding: 10px; background: var(--accent);
+    border: none; border-radius: 8px; color: #fff;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    font-family: var(--sans); transition: background 0.15s;
+  }
+  .setup-btn:hover { background: #ff6060; }
+  .user-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 14px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px;
+  }
+  .user-bar-path { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+  .user-bar-path span { color: var(--accent); }
+  .user-bar-change { color: var(--blue); cursor: pointer; font-size: 11px; background: none; border: none; font-family: var(--sans); }
+  .user-bar-change:hover { text-decoration: underline; }
+
   /* Trim section */
   .trim-box {
     margin-bottom: 16px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
@@ -232,6 +271,11 @@
 
 <!-- GENERATOR PANEL -->
 <div class="panel active" id="panel-gen">
+
+  <div class="user-bar" id="user-bar">
+    <span class="user-bar-path">📁 C:\Users\<span id="user-bar-name">...</span>\Downloads</span>
+    <button class="user-bar-change" onclick="showSetup()">Alterar usuário</button>
+  </div>
 
   <div class="field">
     <label>Link do vídeo ou playlist</label>
@@ -352,7 +396,7 @@
     </div>
     <div class="result-cmd" id="cmd-output"></div>
     <div class="result-footer">
-      <span class="result-path">📁 C:\Users\SeuUsuário\Downloads</span>
+      <span class="result-path" id="result-path-display">📁 C:\Users\...\Downloads</span>
       <button class="open-folder-link" onclick="openDownloads()">Abrir pasta Downloads ↗</button>
     </div>
   </div>
@@ -417,6 +461,16 @@
     <p>Instalação concluída! Volte para a aba <strong style="color:#3dffa0;">Baixar</strong> para gerar seus comandos.</p>
   </div>
 
+</div>
+
+<div class="setup-overlay" id="setup-overlay">
+  <div class="setup-card">
+    <div class="setup-icon">👤</div>
+    <h2>Qual é o seu nome de usuário?</h2>
+    <p>Necessário para gerar o caminho correto da pasta Downloads.<br><br>Abra o CMD e veja o que aparece antes do <code>&gt;</code><br>Exemplo: <code>C:\Users\<strong>comor</strong>&gt;</code> — o nome é <code>comor</code></p>
+    <input class="setup-input" id="setup-input" type="text" placeholder="ex: comor" />
+    <button class="setup-btn" onclick="saveUser()">Salvar e continuar</button>
+  </div>
 </div>
 
 <div class="footer">Download Youtube · Os arquivos são salvos em C:\Users\SeuUsuário\Downloads</div>
@@ -537,7 +591,8 @@
     box.classList.add('show');
 
     const safeUrl = '"' + url + '"';
-    const out = '%USERPROFILE%\\Downloads\\%(title)s.%(ext)s';
+    const username = localStorage.getItem('yt_username') || 'SeuUsuario';
+    const out = 'C:\\Users\\' + username + '\\Downloads\\%(title)s.%(ext)s';
     let cmd = '';
 
     const trimStart = document.getElementById('trim-start') ? document.getElementById('trim-start').value.trim() : '';
@@ -590,14 +645,15 @@
   }
 
   function openDownloads() {
-    const cmdStr = 'explorer %USERPROFILE%\\Downloads';
+    const username = localStorage.getItem('yt_username') || 'SeuUsuario';
+    const cmdStr = 'explorer "C:\\Users\\' + username + '\\Downloads"';
     navigator.clipboard.writeText(cmdStr).then(() => {
       const btn = document.querySelector('.open-folder-link');
       const orig = btn.textContent;
       btn.textContent = '✓ Copiado! Cole no CMD';
       setTimeout(() => btn.textContent = orig, 3000);
     }).catch(() => {
-      alert('Cole este comando no CMD:\n\nexplorer %USERPROFILE%\\Downloads');
+      alert('Cole no CMD:\n\nexplorer "C:\\Users\\comor\\Downloads"');
     });
   }
 
@@ -618,6 +674,37 @@
       setTimeout(() => btn.textContent = orig, 2000);
     });
   }
+
+  function showSetup() {
+    document.getElementById('setup-overlay').classList.add('show');
+    setTimeout(function(){ document.getElementById('setup-input').focus(); }, 100);
+  }
+
+  function saveUser() {
+    var val = document.getElementById('setup-input').value.trim();
+    if (!val) { document.getElementById('setup-input').focus(); return; }
+    localStorage.setItem('yt_username', val);
+    document.getElementById('setup-overlay').classList.remove('show');
+    updateUserBar();
+    generate();
+  }
+
+  function updateUserBar() {
+    var u = localStorage.getItem('yt_username');
+    if (u) {
+      document.getElementById('user-bar-name').textContent = u;
+      var pd = document.getElementById('result-path-display');
+      if (pd) pd.textContent = '📁 C:\\Users\\' + u + '\\Downloads';
+    }
+  }
+
+  (function init() {
+    var u = localStorage.getItem('yt_username');
+    if (!u) { showSetup(); } else { updateUserBar(); }
+    document.getElementById('setup-input').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') saveUser();
+    });
+  })();
 </script>
 </body>
 </html>
