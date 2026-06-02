@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Download Youtube</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f0f11; --surface: #18181c; --surface2: #222228;
+    --border: #2e2e38; --border2: #3e3e50;
+    --text: #f0f0f5; --muted: #8888a0; --hint: #55556a;
+    --accent: #ff4444;
+    --green-dim: #0a2018; --green-border: #1a4a30;
+    --blue: #4da6ff; --blue-dim: #0a1a2e; --blue-border: #1a3a5e;
+    --mono: 'JetBrains Mono', monospace; --sans: 'Sora', sans-serif;
+  }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .header {
+    border-bottom: 1px solid var(--border); padding: 18px 0;
+    text-align: center; position: relative; overflow: hidden;
+  }
+  .header::before {
+    content: ''; position: absolute; top: -60px; left: 50%; transform: translateX(-50%);
+    width: 400px; height: 200px;
+    background: radial-gradient(ellipse, rgba(255,60,60,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header-inner { position: relative; display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .logo { width: 36px; height: 36px; background: var(--accent); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .logo svg { width: 20px; height: 20px; fill: #fff; }
+  .header h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
+  .header h1 span { color: var(--accent); }
+  .tagline { font-size: 12px; color: var(--muted); margin-top: 5px; font-weight: 300; }
+
+  .tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .tab {
+    flex: 1; padding: 13px; text-align: center; font-size: 13px; font-weight: 500;
+    color: var(--muted); cursor: pointer; border: none; background: transparent;
+    border-bottom: 2px solid transparent; transition: all 0.2s; font-family: var(--sans);
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .panel { display: none; padding: 24px; }
+  .panel.active { display: block; }
+
+  /* Thumbnail preview */
+  .thumb-box {
+    display: none; margin-bottom: 18px;
+    border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    background: var(--surface); flex-direction: row; align-items: center; gap: 0;
+  }
+  .thumb-box.show { display: flex; }
+  .thumb-square {
+    width: 90px; height: 90px; flex-shrink: 0;
+    overflow: hidden; background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .thumb-square img {
+    width: 120px; height: 90px; object-fit: cover; display: none; flex-shrink: 0;
+  }
+  .thumb-loading {
+    width: 90px; height: 90px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--hint); font-size: 20px;
+  }
+  .thumb-info {
+    padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0;
+  }
+  .thumb-title { font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .thumb-channel { font-size: 12px; color: var(--muted); }
+  .thumb-error { padding: 10px 14px; font-size: 12px; color: var(--muted); font-style: italic; }
+
+  /* Generator fields */
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 6px; font-weight: 500; letter-spacing: 0.4px; text-transform: uppercase; }
+  input[type="text"] {
+    width: 100%; padding: 11px 14px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-size: 14px; font-family: var(--sans); outline: none; transition: border-color 0.2s;
+  }
+  input[type="text"]:focus { border-color: var(--border2); }
+  input[type="text"]::placeholder { color: var(--hint); }
+
+  .btn-group { display: flex; gap: 8px; }
+  .btn-toggle {
+    flex: 1; padding: 9px 12px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--muted); font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all 0.15s; font-family: var(--sans);
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-toggle:hover { color: var(--text); border-color: var(--border2); }
+  .btn-toggle.active { background: rgba(255,68,68,0.12); border-color: rgba(255,68,68,0.5); color: #ff8888; }
+
+  select {
+    width: 100%; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 13px; font-family: var(--sans);
+    outline: none; cursor: pointer; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2388888a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; transition: border-color 0.2s;
+  }
+  select:focus { border-color: var(--border2); }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .fmt-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .fmt-btn {
+    padding: 5px 14px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--muted); font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s; font-family: var(--mono);
+  }
+  .fmt-btn:hover { color: var(--text); border-color: var(--border2); }
+  .fmt-btn.active { background: rgba(255,68,68,0.12); border-color: rgba(255,68,68,0.5); color: #ff9999; }
+
+  .playlist-warning { display: none; margin-bottom: 16px; background: #1a1500; border: 1px solid #4a3a00; border-radius: 10px; padding: 12px 16px; gap: 10px; align-items: flex-start; }
+  .playlist-warning.show { display: flex; }
+  .playlist-warning p { font-size: 13px; color: #ffd080; line-height: 1.6; }
+  .playlist-warning strong { color: #ffb020; }
+
+  .result-box { margin-top: 20px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; display: none; }
+  .result-box.show { display: block; }
+  .result-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .result-label { font-size: 12px; color: var(--muted); font-family: var(--mono); display: flex; align-items: center; gap: 6px; }
+  .result-label::before { content: ''; display: inline-block; width: 8px; height: 8px; background: var(--accent); border-radius: 50%; }
+  .copy-btn { padding: 5px 14px; background: var(--accent); border: none; border-radius: 6px; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: var(--sans); }
+  .copy-btn:hover { background: #ff6060; }
+  .copy-btn:active { transform: scale(0.97); }
+  .result-cmd { padding: 14px 16px; font-family: var(--mono); font-size: 13px; color: #b0d0ff; line-height: 1.7; white-space: pre-wrap; word-break: break-all; background: #0d0d10; }
+  .result-footer { padding: 10px 14px; background: var(--surface); border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .result-path { font-size: 12px; color: var(--muted); }
+  .open-folder-link { font-size: 12px; color: var(--blue); background: var(--blue-dim); border: 1px solid var(--blue-border); border-radius: 6px; padding: 4px 12px; cursor: pointer; font-family: var(--sans); transition: all 0.15s; white-space: nowrap; }
+  .open-folder-link:hover { color: #80c0ff; }
+
+  .empty-state { margin-top: 20px; padding: 32px; border: 1px dashed var(--border); border-radius: 10px; text-align: center; color: var(--hint); font-size: 13px; }
+  .empty-icon { font-size: 30px; margin-bottom: 8px; opacity: 0.5; }
+
+  /* Install panel */
+  .install-intro { background: #2a1010; border: 1px solid #5a1a1a; border-radius: 10px; padding: 14px 16px; margin-bottom: 22px; display: flex; gap: 10px; align-items: flex-start; }
+  .install-intro p { font-size: 13px; color: #ffaaaa; line-height: 1.6; }
+  .install-intro strong { color: #ff7777; }
+  .step { margin-bottom: 20px; }
+  .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .step-num { width: 26px; height: 26px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--accent); flex-shrink: 0; }
+  .step-title { font-size: 14px; font-weight: 500; color: var(--text); }
+  .step-desc { font-size: 13px; color: var(--muted); margin-bottom: 10px; padding-left: 36px; line-height: 1.6; }
+  .step-desc a { color: var(--blue); text-decoration: none; }
+  .step-desc a:hover { text-decoration: underline; }
+  .code-block { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-left: 36px; }
+  .code-block-header { display: flex; align-items: center; justify-content: space-between; padding: 7px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .code-label { font-size: 11px; color: var(--hint); font-family: var(--mono); }
+  .copy-small { font-size: 11px; color: var(--muted); background: transparent; border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; cursor: pointer; font-family: var(--sans); transition: all 0.15s; }
+  .copy-small:hover { color: var(--text); border-color: var(--border2); }
+  .code-body { padding: 12px 14px; font-family: var(--mono); font-size: 13px; color: #c0c0e0; white-space: pre-wrap; word-break: break-all; line-height: 1.6; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0; }
+  .success-note { background: var(--green-dim); border: 1px solid var(--green-border); border-radius: 10px; padding: 14px 16px; display: flex; gap: 10px; align-items: flex-start; }
+  .success-note p { font-size: 13px; color: #88ffcc; line-height: 1.6; }
+
+  /* Tooltips */
+  .fmt-wrap { position: relative; display: inline-block; }
+  .tooltip {
+    display: none;
+    position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    background: #1e1e28; border: 1px solid var(--border2);
+    border-radius: 8px; padding: 8px 11px;
+    font-size: 12px; color: var(--muted); line-height: 1.5;
+    white-space: nowrap; z-index: 99; pointer-events: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    min-width: 180px; white-space: normal; text-align: center;
+  }
+  .tooltip strong { color: var(--text); display: block; margin-bottom: 2px; font-size: 12px; }
+  .tooltip::after {
+    content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: var(--border2);
+  }
+  .fmt-wrap:hover .tooltip { display: block; }
+
+  .footer { text-align: center; padding: 18px; border-top: 1px solid var(--border); font-size: 12px; color: var(--hint); }
+
+  @media (max-width: 480px) {
+    .two-col { grid-template-columns: 1fr; }
+    .panel { padding: 18px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <div class="logo">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+    </div>
+    <h1>Download <span>Youtube</span></h1>
+  </div>
+  <p class="tagline">Gere comandos para baixar vídeos e áudios do YouTube</p>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('gen')" id="tab-gen">▶ Baixar</button>
+  <button class="tab" onclick="showTab('install')" id="tab-install">⚙️ Instalação do yt-dlp</button>
+</div>
+
+<!-- GENERATOR PANEL -->
+<div class="panel active" id="panel-gen">
+
+  <div class="field">
+    <label>Link do vídeo ou playlist</label>
+    <input type="text" id="url-input" placeholder="https://www.youtube.com/watch?v=..." oninput="onUrlInput()" />
+  </div>
+
+  <!-- Thumbnail preview -->
+  <div class="thumb-box" id="thumb-box">
+    <div class="thumb-square">
+      <div class="thumb-loading" id="thumb-loading">⏳</div>
+      <img id="thumb-img" src="" alt="" onload="thumbLoaded()" onerror="thumbError()" />
+    </div>
+    <div class="thumb-info" id="thumb-info" style="display:none;">
+      <div class="thumb-title" id="thumb-title"></div>
+      <div class="thumb-channel" id="thumb-channel"></div>
+    </div>
+    <div class="thumb-error" id="thumb-error" style="display:none;">Prévia indisponível.</div>
+  </div>
+
+  <div class="playlist-warning" id="playlist-warning">
+    <span style="font-size:18px;flex-shrink:0;">📋</span>
+    <div style="flex:1;">
+      <p>Este link é de uma <strong>playlist</strong>. O yt-dlp vai baixar <strong>todos os vídeos</strong> da lista em sequência. Se quiser baixar apenas este vídeo, clique abaixo.</p>
+      <button onclick="removePlaylist()" style="margin-top:10px;padding:6px 14px;background:#2a1f00;border:1px solid #6a4a00;border-radius:6px;color:#ffc040;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans);">
+        ✂️ Remover playlist — manter só este vídeo
+      </button>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Tipo de download</label>
+    <div class="btn-group">
+      <button class="btn-toggle active" id="btn-video" onclick="setType('video')">🎬 Vídeo</button>
+      <button class="btn-toggle" id="btn-audio" onclick="setType('audio')">🎵 Somente Áudio</button>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="field" id="quality-block">
+      <label>Qualidade do vídeo</label>
+      <select id="quality-select" onchange="generate()">
+        <option value="bestvideo+bestaudio/best">Melhor qualidade</option>
+        <option value="bestvideo[height<=1080]+bestaudio/best[ext=m4a]/best">1080p</option>
+        <option value="bestvideo[height<=720]+bestaudio/best[ext=m4a]/best">720p</option>
+        <option value="bestvideo[height<=480]+bestaudio/best[ext=m4a]/best">480p</option>
+        <option value="bestvideo[height<=360]+bestaudio/best[ext=m4a]/best">360p</option>
+        <option value="worstvideo+worstaudio/worst">Menor tamanho</option>
+      </select>
+    </div>
+    <div class="field" id="audio-quality-block" style="display:none;">
+      <label>Qualidade do áudio</label>
+      <select id="audio-quality-select" onchange="generate()">
+        <option value="320">320 kbps (melhor)</option>
+        <option value="192">192 kbps</option>
+        <option value="128">128 kbps</option>
+        <option value="96">96 kbps</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Formato de saída</label>
+      <div class="fmt-row" id="format-btns">
+        <span class="fmt-wrap">
+          <button class="fmt-btn active" id="fmt-mp4" onclick="setFormat('mp4')">MP4</button>
+          <div class="tooltip"><strong>MP4</strong>Compatível com todos os dispositivos. Melhor escolha para assistir no celular, TV ou PC.</div>
+        </span>
+        <span class="fmt-wrap">
+          <button class="fmt-btn" id="fmt-webm" onclick="setFormat('webm')">WEBM</button>
+          <div class="tooltip"><strong>WEBM</strong>Formato do Google, menor tamanho de arquivo. Ideal para uso na web, mas pode não abrir em TVs antigas.</div>
+        </span>
+        <span class="fmt-wrap">
+          <button class="fmt-btn" id="fmt-mkv" onclick="setFormat('mkv')">MKV</button>
+          <div class="tooltip"><strong>MKV</strong>Suporta múltiplas faixas de áudio e legendas. Ótimo para filmes, mas nem todo player abre sem instalar codec.</div>
+        </span>
+      </div>
+      <div class="fmt-row" id="audio-format-btns" style="display:none;">
+        <span class="fmt-wrap">
+          <button class="fmt-btn active" id="fmt-mp3" onclick="setAudioFormat('mp3')">MP3</button>
+          <div class="tooltip"><strong>MP3</strong>Formato de áudio mais universal. Compatível com todos os players, carros e celulares.</div>
+        </span>
+        <span class="fmt-wrap">
+          <button class="fmt-btn" id="fmt-m4a" onclick="setAudioFormat('m4a')">M4A</button>
+          <div class="tooltip"><strong>M4A</strong>Qualidade superior ao MP3 no mesmo tamanho. Padrão do iPhone e iTunes. Pode não rodar em players antigos.</div>
+        </span>
+        <span class="fmt-wrap">
+          <button class="fmt-btn" id="fmt-opus" onclick="setAudioFormat('opus')">OPUS</button>
+          <div class="tooltip"><strong>OPUS</strong>Formato moderno com melhor qualidade por tamanho. Usado no YouTube e WhatsApp, mas suporte limitado em players.</div>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="result-box" id="result-box">
+    <div class="result-header">
+      <span class="result-label">Cole este comando no CMD</span>
+      <button class="copy-btn" id="copy-btn" onclick="copyCmd()">Copiar comando</button>
+    </div>
+    <div class="result-cmd" id="cmd-output"></div>
+    <div class="result-footer">
+      <span class="result-path">📁 C:\Users\SeuUsuário\Downloads</span>
+      <button class="open-folder-link" onclick="openDownloads()">Abrir pasta Downloads ↗</button>
+    </div>
+  </div>
+
+  <div class="empty-state" id="empty-state">
+    <div class="empty-icon">🔗</div>
+    Cole o link do YouTube acima para gerar o comando
+  </div>
+
+</div>
+
+<!-- INSTALL PANEL -->
+<div class="panel" id="panel-install">
+
+  <div class="install-intro">
+    <span style="font-size:18px;flex-shrink:0;">⚠️</span>
+    <p>Se você <strong>ainda não instalou o yt-dlp</strong>, siga os passos abaixo antes de usar os comandos de download.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-header"><div class="step-num">1</div><div class="step-title">Abra o Prompt de Comando (CMD)</div></div>
+    <p class="step-desc">Pressione <strong>Win + R</strong>, digite <code style="font-family:monospace;background:#222;padding:1px 6px;border-radius:4px;">cmd</code> e aperte Enter. Ou pesquise "Prompt de Comando" no menu Iniciar.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-header"><div class="step-num">2</div><div class="step-title">Verifique o winget</div></div>
+    <p class="step-desc">O winget já vem no Windows 10/11. Para verificar, cole no CMD:</p>
+    <div class="code-block">
+      <div class="code-block-header"><span class="code-label">CMD</span><button class="copy-small" onclick="copyCode(this,'winget --version')">Copiar</button></div>
+      <div class="code-body">winget --version</div>
+    </div>
+    <p class="step-desc" style="margin-top:8px;">Se não funcionar, baixe em: <a href="https://aka.ms/getwinget" target="_blank">aka.ms/getwinget</a></p>
+  </div>
+
+  <div class="step">
+    <div class="step-header"><div class="step-num">3</div><div class="step-title">Instale o yt-dlp</div></div>
+    <p class="step-desc">Cole no CMD e aguarde terminar:</p>
+    <div class="code-block">
+      <div class="code-block-header"><span class="code-label">CMD — Instalação</span><button class="copy-small" onclick="copyCode(this,'winget install yt-dlp')">Copiar</button></div>
+      <div class="code-body">winget install yt-dlp</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-header"><div class="step-num">4</div><div class="step-title">Reinicie o CMD</div></div>
+    <p class="step-desc"><strong>Feche e abra o CMD novamente</strong> para que o Windows reconheça o yt-dlp.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-header"><div class="step-num">5</div><div class="step-title">Verifique a instalação</div></div>
+    <p class="step-desc">Cole para confirmar que tudo está certo:</p>
+    <div class="code-block">
+      <div class="code-block-header"><span class="code-label">CMD — Verificação</span><button class="copy-small" onclick="copyCode(this,'yt-dlp --version')">Copiar</button></div>
+      <div class="code-body">yt-dlp --version</div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="success-note">
+    <span style="font-size:18px;flex-shrink:0;">✅</span>
+    <p>Instalação concluída! Volte para a aba <strong style="color:#3dffa0;">Baixar</strong> para gerar seus comandos.</p>
+  </div>
+
+</div>
+
+<div class="footer">Download Youtube · Os arquivos são salvos em C:\Users\SeuUsuário\Downloads</div>
+
+<script>
+  let currentType = 'video', currentFormat = 'mp4', currentAudioFormat = 'mp3';
+  let thumbTimer = null;
+
+  function showTab(t) {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + t).classList.add('active');
+    document.getElementById('panel-' + t).classList.add('active');
+  }
+
+  function setType(t) {
+    currentType = t;
+    document.getElementById('btn-video').classList.toggle('active', t === 'video');
+    document.getElementById('btn-audio').classList.toggle('active', t === 'audio');
+    document.getElementById('quality-block').style.display = t === 'video' ? '' : 'none';
+    document.getElementById('audio-quality-block').style.display = t === 'audio' ? '' : 'none';
+    document.getElementById('format-btns').style.display = t === 'video' ? 'flex' : 'none';
+    document.getElementById('audio-format-btns').style.display = t === 'audio' ? 'flex' : 'none';
+    generate();
+  }
+
+  function setFormat(f) {
+    currentFormat = f;
+    ['mp4','webm','mkv'].forEach(x => document.getElementById('fmt-'+x).classList.toggle('active', x===f));
+    generate();
+  }
+
+  function setAudioFormat(f) {
+    currentAudioFormat = f;
+    ['mp3','m4a','opus'].forEach(x => document.getElementById('fmt-'+x).classList.toggle('active', x===f));
+    generate();
+  }
+
+  function extractVideoId(url) {
+    try {
+      const u = new URL(url);
+      if (u.hostname.includes('youtu.be')) return u.pathname.slice(1).split('?')[0];
+      return u.searchParams.get('v');
+    } catch(e) { return null; }
+  }
+
+  function onUrlInput() {
+    clearTimeout(thumbTimer);
+    thumbTimer = setTimeout(loadThumb, 600);
+    generate();
+  }
+
+  function loadThumb() {
+    const url = document.getElementById('url-input').value.trim();
+    const thumbBox = document.getElementById('thumb-box');
+    const thumbImg = document.getElementById('thumb-img');
+    const thumbLoading = document.getElementById('thumb-loading');
+    const thumbInfo = document.getElementById('thumb-info');
+    const thumbError = document.getElementById('thumb-error');
+    const thumbTitle = document.getElementById('thumb-title');
+    const thumbChannel = document.getElementById('thumb-channel');
+
+    if (!url) { thumbBox.classList.remove('show'); return; }
+
+    const videoId = extractVideoId(url);
+    if (!videoId) { thumbBox.classList.remove('show'); return; }
+
+    thumbBox.classList.add('show');
+    thumbLoading.style.display = 'flex';
+    thumbImg.style.display = 'none';
+    thumbInfo.style.display = 'none';
+    thumbError.style.display = 'none';
+
+    // Use YouTube's oEmbed API for title + channel
+    fetch('https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=' + videoId + '&format=json')
+      .then(r => r.json())
+      .then(data => {
+        thumbTitle.textContent = data.title || '';
+        thumbChannel.textContent = data.author_name || '';
+        thumbInfo.style.display = 'flex';
+      })
+      .catch(() => {});
+
+    // Load thumbnail directly from YouTube CDN
+    thumbImg.src = 'https://img.youtube.com/vi/' + videoId + '/mqdefault.jpg';
+  }
+
+  function thumbLoaded() {
+    document.getElementById('thumb-loading').style.display = 'none';
+    document.getElementById('thumb-img').style.display = 'block';
+    document.getElementById('thumb-error').style.display = 'none';
+    document.getElementById('thumb-info').style.display = 'flex';
+  }
+
+  function thumbError() {
+    document.getElementById('thumb-loading').style.display = 'none';
+    document.getElementById('thumb-img').style.display = 'none';
+    document.getElementById('thumb-error').style.display = 'block';
+  }
+
+  function generate() {
+    const url = document.getElementById('url-input').value.trim();
+    const box = document.getElementById('result-box');
+    const empty = document.getElementById('empty-state');
+    const playlistWarn = document.getElementById('playlist-warning');
+
+    if (!url) {
+      box.classList.remove('show');
+      empty.style.display = '';
+      playlistWarn.classList.remove('show');
+      return;
+    }
+
+    const isPlaylist = url.includes('list=') || url.includes('youtube.com/playlist');
+    playlistWarn.classList.toggle('show', isPlaylist);
+
+    empty.style.display = 'none';
+    box.classList.add('show');
+
+    const safeUrl = '"' + url + '"';
+    const out = '%USERPROFILE%\\Downloads\\%(title)s.%(ext)s';
+    let cmd = '';
+
+    if (currentType === 'video') {
+      const q = document.getElementById('quality-select').value;
+      cmd = 'yt-dlp -f "' + q + '" --merge-output-format ' + currentFormat + ' -o "' + out + '" ' + safeUrl;
+    } else {
+      const aq = document.getElementById('audio-quality-select').value;
+      cmd = 'yt-dlp -x --audio-format ' + currentAudioFormat + ' --audio-quality ' + aq + 'K -o "' + out + '" ' + safeUrl;
+    }
+
+    document.getElementById('cmd-output').textContent = cmd;
+    document.getElementById('copy-btn').textContent = 'Copiar comando';
+    document.getElementById('copy-btn').style.background = '';
+  }
+
+  function removePlaylist() {
+    const input = document.getElementById('url-input');
+    let url = input.value.trim();
+    try {
+      const u = new URL(url);
+      u.searchParams.delete('list');
+      u.searchParams.delete('index');
+      input.value = u.toString();
+    } catch(e) {
+      url = url.replace(/[&?]list=[^&]*/g,'').replace(/[&?]index=[^&]*/g,'');
+      input.value = url;
+    }
+    loadThumb();
+    generate();
+  }
+
+  function openDownloads() {
+    const cmdStr = 'explorer %USERPROFILE%\\Downloads';
+    navigator.clipboard.writeText(cmdStr).then(() => {
+      const btn = document.querySelector('.open-folder-link');
+      const orig = btn.textContent;
+      btn.textContent = '✓ Copiado! Cole no CMD';
+      setTimeout(() => btn.textContent = orig, 3000);
+    }).catch(() => {
+      alert('Cole este comando no CMD:\n\nexplorer %USERPROFILE%\\Downloads');
+    });
+  }
+
+  function copyCmd() {
+    const text = document.getElementById('cmd-output').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copy-btn');
+      btn.textContent = '✓ Copiado!';
+      btn.style.background = '#22aa66';
+      setTimeout(() => { btn.textContent = 'Copiar comando'; btn.style.background = ''; }, 2000);
+    });
+  }
+
+  function copyCode(btn, text) {
+    navigator.clipboard.writeText(text).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = '✓ Copiado';
+      setTimeout(() => btn.textContent = orig, 2000);
+    });
+  }
+</script>
+</body>
+</html>
